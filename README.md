@@ -1,2 +1,2 @@
-# Hello-World
-## Test2
+# My R scripts
+## Calcualtion of NPV and IRR
