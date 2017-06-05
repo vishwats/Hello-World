@@ -1,0 +1,676 @@
+---
+title: Estimation of Inland Fish Production of Karnataka for the year 2016-17 using
+  'R'
+output:
+  pdf_document: 
+    toc: yes
+    toc_depth: 3
+  html_document: default
+  word_document: default
+date: "April 17, 2017"
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+# Resource and Method: 
+Inland fish production is estimated by growth and survival of fish seed stocked to different water bodies for cultured fish  and area utilization and productivity of different water bodies for natural fish production.  District wise resources and  fish seed stocking data from field office is collected and compiled in an excel sheet. This work book is used in this 'R' programme for estimation of inland fish production.
+
+R is an open source programming language and software environment for statistical computing and graphics that is supported by the R Foundation for Statistical Computing. The R language is widely used among statisticians and data miners for developing statistical software and data analysis. Polls, surveys of data miners, and studies of scholarly literature databases show that R's popularity has increased substantially in recent years. R and its libraries implement a wide variety of statistical and graphical techniques, including linear and nonlinear modeling, classical statistical tests, time-series analysis, classification, clustering, and others. R is easily extensible through functions and extensions, and the R community is noted for its active contributions in terms of packages.
+
+```{r}
+library(XLConnect)
+inland_xl_data<-loadWorkbook("inland_area_stocking_data.xlsx") 
+#Load excel work book containing resource wise fish seed stocked and Area availabe in each District
+```
+
+### Read data from Sheet1 to data frame object "resource_data"
+```{r}
+resource_data<-readWorksheet(inland_xl_data, sheet = 1 , startRow =1 , startCol =1,
+                             endRow =31 , endCol =16, header = TRUE)
+
+str(resource_data)  # structure of resource/stocking data
+```
+
+
+Field Names used in the source work sheet and thier description is provided below for information and clarity.
+
+```{r }
+desc<-readWorksheet(inland_xl_data, sheet = 1 , startRow = 1 , startCol = 18 ,
+                    endRow =17 , endCol =19, header = TRUE)
+
+desc
+```
+
+## Important Assumptions for Estimation
+
+### Culture production:
+
+
+```{r}
+assumption<-readWorksheet(inland_xl_data, sheet = 2 , startRow =1 , startCol =1 ,
+                          endRow =8 , endCol =5, header = TRUE)
+#Read data from Sheet2 to data frame object "assumption"
+assumption$cf<- assumption$Growth * assumption$Harvest * assumption$Survival
+
+assumption  # Conversion Factor (cf) for assessing cultured fish production
+```
+
+## Functions for estimation of Culture Fish Production in MT based on above assumtions
+
+Three factors are important for estimation of culture fish production: Survival proportion (S), Harvest proportion (H) and Growth (G) in kg are used to calculate the conversion factor (cf) which is multiplied to fish seed stocked for the respective years (Y1, Y2, Y3)
+
+### Function for estimation of 'Reservoir Culture Production'
+```{r}
+cp_R_f<-function(y1,y2,y3) {
+  
+  cf1<- assumption[5,6] # cf is picked from respective row and column of 'asuumption' table 
+  cf2<- assumption[6,6]
+  cf3<- assumption[7,6]
+  
+  ((y3 *cf3) + (y2 * cf2) + (y1 * cf1)) / 1000
+  
+  }
+```
+
+### Function for estimation of 'Major Tank Culture Production'
+```{r}
+cp_MJT_f<-function(y1,y2) {
+  
+   cf1<- assumption[1,6]
+   # cf is picked from respective row and column of 'asuumption' table 
+   cf2<- assumption[2,6]
+  
+  ((y2 * cf2) + (y1 * cf1))  / 1000
+  
+  }
+```
+### Function for estimation of 'Minor Tank Culture Production'
+```{r}
+cp_MNT_f<-function(y1) {
+  
+   cf1<- assumption[3,6] 
+   # cf is picked from respective row and column of 'asuumption' table 
+  
+  (y1 * cf1) / 1000
+  
+  }
+```
+
+### Function for estimation of 'Private Ponds Culture Production'
+```{r}
+cp_PVT_f<-function(y1) {
+  
+   cf1<- assumption[4,6] 
+   # cf is picked from respective row and column of 'asuumption' table 
+  
+  (y1 *cf1) / 1000
+  
+  }
+```
+### Reservoir production for 2016-17
+
+```{r}
+R_CP<- cp_R_f(y1 = resource_data$stock_R_Y1, y2 = resource_data$stock_R_Y2,
+              y3 = resource_data$stock_R_Y3 )
+
+ # Reserovir culture fish production in MT for each District
+
+sum(R_CP) # Total 
+```
+### Major Tank Fish Production for 2016-17
+
+```{r}
+MJT_CP<- cp_MJT_f(y1 = resource_data$stock_MJT_Y1, 
+                  y2 = resource_data$stock_MJT_Y2)
+
+# Major Tank culture fish production in MT for each  District
+
+sum(MJT_CP) # Total
+```
+
+### Minor Tank Fish Production for 2016-17
+
+```{r}
+MNT_CP<- cp_MNT_f(y1 = resource_data$stock_MNT_Y1)
+
+# Minor Tank culture fish production in MT for each  District
+
+sum(MNT_CP) # Total
+```
+### Private Ponds Fish Production for 2016-17
+
+```{r}
+PVT_CP<- cp_PVT_f(y1 = resource_data$stock_PVT_Y1)
+
+# Private culture fish production in MT for each  District
+
+sum(PVT_CP) # Total
+```
+### Brackish Water cultuteFish Production for 2016-17
+
+```{r}
+
+BW_CP<- resource_data$BW_P 
+# Directly obtained from district as in source work sheet
+
+
+sum(BW_CP) # Total
+
+```
+
+# A) By Cultre : Total Fish Production in MT
+
+```{r}
+TFP_CP<-sum(BW_CP) + sum(R_CP) +sum(MJT_CP) + sum(MNT_CP) + sum(PVT_CP)
+
+TFP_CP
+```
+## Natural Fish Production : Important Assumptions
+
+Fish production potential per Ha for estmation of Natural Fish Production based on area or extant of  of resources available.
+Minor tanks -10% area X 40 Kg. per Ha.
+Major tanks - 45% area X 45 Kg. per Ha.
+Reservoirs < 500 Ha. -50% area X 45 Kg. per Ha.
+Reservoirs > 500 Ha. - 60% area X 45 Kg. per Ha.
+Waterlogged area - 10 Kg. per Ha.
+Rivers -  150 Kg. per Km.
+Esturies - 750 Kg. per Ha.
+
+### Conversion Factor (cf) for assessing natural fish production
+
+```{r}
+a_np<-readWorksheet(inland_xl_data, sheet = 3 , startRow =1 , startCol =1 ,
+                    endRow =8 , endCol = 3, header = TRUE)
+
+a_np 
+
+```
+
+## Function for estimation of Natural Fish Production in MT based on the above assumtions
+
+```{r}
+np_f<-function(x, perc_area, productivity) {
+  
+  
+  (x * perc_area * productivity) /1000
+  
+}
+```
+
+### Natural fish production in MT for Minor tanks -10% area X 40 Kg. per Ha.
+
+```{r}
+MNT_NP<-np_f(resource_data$MNT_A, a_np[5,2], a_np[5,3])
+
+sum(MNT_NP)
+```
+
+###  Natural fish production in MT for Major tanks - 45% area X 45 Kg. per Ha.
+
+```{r}
+MJT_NP<-np_f(resource_data$MJT_A, a_np[4,2], a_np[4,3])
+
+sum(MJT_NP)
+```
+###  Natural fish production in MT for Reservoirs < 500 Ha. -50% area X 45 Kg. per Ha.
+
+```{r}
+SR_NP<-np_f(resource_data$SR_A, a_np[2,2], a_np[2,3])
+
+sum(SR_NP)
+```
+
+###  Natural fish production in MT for Reservoirs > 500 Ha. - 60% area X 45 Kg. per Ha..
+
+```{r}
+LR_NP<-np_f(resource_data$LR_A, a_np[1,2], a_np[1,3])
+
+sum(LR_NP)
+```
+### Natural FP Natural fish production in MT for Waterlogged area - 10 Kg. per Ha.
+
+```{r}
+WL_NP<-np_f(resource_data$WL_A, a_np[3,2], a_np[3,3])
+
+sum(WL_NP)
+```
+###  Natural fish production in MT for Rivers -  150 Kg. per Km
+
+```{r}
+River_NP<-np_f(resource_data$River_km, a_np[6,2], a_np[6,3])
+
+sum(River_NP)
+```
+###  Natural fish production in MT for Esturies - 750 Kg. per Ha.
+
+```{r}
+Estuary_NP<-np_f(resource_data$Estuary_a, a_np[7,2], a_np[7,3])
+
+sum(Estuary_NP)
+```
+
+# B) By Natural Production : Total Fish Production
+
+```{r}
+TFP_NP<-sum(MJT_NP) + sum(LR_NP) +sum(MNT_NP) + sum(SR_NP) + 
+        sum(WL_NP) + sum(River_NP) + sum(Estuary_NP)
+
+TFP_NP
+```
+
+# Total Fish Production of the State for the Year 2016-17
+
+## A) Culture Production  + B) By Natural Production
+
+```{r}
+TFP<- TFP_CP + TFP_NP
+
+TFP
+```
+# District-wise Fish Production in MT and its Value Rs in lakh for 2016 -17
+
+District-wise fish production in MT and its value (Rs in lakh) for 2016-17 is computed and tabluted below;
+
+```{r}
+DIST_NP<- MJT_NP + LR_NP + MNT_NP + SR_NP + WL_NP + River_NP + Estuary_NP
+  
+DIST_CP<- BW_CP + R_CP + MJT_CP + MNT_CP + PVT_CP
+  
+DISTRICT<-resource_data[,1]
+
+Total_FP<- DIST_NP +DIST_CP
+
+Value_Lakh_Rs<-(Total_FP - BW_CP) * 0.85 + (BW_CP * 3.5)
+
+
+DIST_TFP<-data.frame(DISTRICT, Total_FP, Value_Lakh_Rs)
+
+```
+
+## District-wise Fish Production in MT and its Value Rs in lakh for 2016 -17
+
+```{r}
+print(DIST_TFP)
+```
+
+# State Inland Fish Production (in MT)  and its Value (Rs in Lakh) for the year 2016-17: 
+
+```{r}
+Fish_Produnction<- sum(DIST_TFP[,2])
+Value<- sum(Value_Lakh_Rs)
+Total<-data.frame(Fish_Produnction,Value)
+Total
+
+```
+# Write and Save output
+
+New workbook "inland_production.xlsx" is saved in working Directory containing, 
+
+Resource Data in Sheet1
+Assumptions for Culture Production in Sheet2
+Assumptions for Natural Production in Sheet3
+District Wise Fish Production nad its value in Sheet4
+and
+State's Total Fish Production and its Value in Sheet5 
+
+```{r}
+writeWorksheet ( inland_xl_data, DIST_TFP, sheet = 5, startRow = 1 , startCol = 1 ,
+                 header = TRUE )
+writeWorksheet ( inland_xl_data, Total, sheet = 5, startRow = 32 , startCol = 2 ,
+                 header = TRUE )
+saveWorkbook(inland_xl_data,"inland_production.xlsx")
+
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(DIST_TFP, aes(x = DISTRICT, y = Total_FP))+
+  
+  geom_bar(stat = "identity") +
+ 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+#Analysis of inland fish production data from 2007-08 to 2015-16 and build a prediction model
+
+Statisitical analysis of Inland fish production data from 2007-08 to 2015-16 is done using R stat tools. For analysis purpose data of each district, stocking in lakh fingerlings (of all category) and resource area in ha (of all category) are taken as data points. 
+
+## import data in R
+```{r}
+inland_old_data<-loadWorkbook("inlandcatch.xlsx")
+legacy_data<-readWorksheet(inland_old_data, sheet = 2 , startRow =1 , startCol =1 ,
+                           endRow =266 , endCol =7, header = TRUE)
+```
+## Structure of data:
+
+```{r}
+str(legacy_data)
+
+```
+## Summary of the data distribution
+```{r}
+legacy_data$District<-factor(legacy_data$District)
+legacy_data$fin_year<-factor(legacy_data$fin_year, ordered = TRUE)
+summary(legacy_data)
+```
+## Aggregate:  year_wise fish production
+```{r}
+qty_summ<-aggregate(cbind(Qty_MT,Value_LRs,stocking_LFng)~year_ann,
+                    data = legacy_data,sum)
+
+print(qty_summ)
+```
+## Exploratory data analysis
+### Density plots
+
+Density Plots of dependent variable (Fish Production (Qty_MT)) and independent variables (Stocking and Area) are shwon below
+
+
+```{r}
+par(mfrow = c(3,1))
+plot(density(legacy_data$stocking_LFng))
+plot(density(legacy_data$Area_ha))
+plot(density(legacy_data$Qty_MT))
+```
+### Probabilty Density Function and Histogram plots of dependent variable
+```{r message= FALSE}
+h<-hist(legacy_data$Qty_MT,breaks=30)
+Qty_MT<-c(min(h$breaks),h$breaks)
+freq<-c(0,h$density,0)
+xfit<-seq(min(legacy_data$Qty_MT),max(legacy_data$Qty_MT),length=40)
+yfit<-dnorm(xfit,mean=mean(legacy_data$Qty_MT),sd=sd(legacy_data$Qty_MT))
+plot(Qty_MT,freq,type="s",ylim=c(0,max(freq,yfit)),
+     main= "pdf and histogram")
+lines(xfit,yfit, col= "red")
+
+```
+### Skewness and Krtosis of dependant variable
+
+```{r, message=FALSE, warning=FALSE}
+library(fBasics)
+skewness(legacy_data$Qty_MT)
+kurtosis(legacy_data$Qty_MT)
+```
+
+Plot clearly shows distribution is skewed to right and has gamma distribution.
+
+### Empirical cumulative distribution
+
+```{r}
+plot(ecdf(legacy_data$Qty_MT), main = "Empirical cumulative distribution") 
+# Empirical cummulitive distribution
+summary(ecdf(legacy_data$Qty_MT))
+```
+
+## plot showing strong positive relation of Stocking and Production
+
+```{r}
+ggplot(legacy_data, aes(x = stocking_LFng, y = Qty_MT)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = T) +
+  theme_light()
+
+```
+## plot showing strong positive relation of Stocking and Production
+
+```{r}
+ggplot(legacy_data, aes(x = Area_ha, y = Qty_MT)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_light()
+
+```
+
+
+## Correlation Coefficient  Stocking Vs Production
+
+```{r}
+
+cor.test(legacy_data$stocking_LFng,legacy_data$Qty_MT,method = c("pearson"))
+
+```
+
+##Correlation Coefficient  Area Vs Production
+```{r}
+
+cor.test(legacy_data$Area_ha,legacy_data$Qty_MT,method = c("pearson"))
+
+	#Pearson's product-moment correlation
+```
+
+## coplots showing influence of stocking and / or Area  on inland fish production
+ 
+```{r}
+par(mfrow = c(2,1))
+coplot(Qty_MT~stocking_LFng|Area_ha,panel=panel.smooth,legacy_data)
+coplot(Qty_MT~Area_ha|stocking_LFng,panel=panel.smooth,legacy_data)
+```
+```{r}
+
+```
+
+
+# Fit generalized linear model of  Fish Production Vs Stocking * Area Interaction
+
+## Model Assumptions
+
+The model fitting is just the first part of the regression analysis since this is all based on certain assumptions. Regression diagnostics are used to evaluate the model assumptions and investigate whether or not there are observations with a large, undue influence on the analysis. Again, the assumptions for linear regression are:
+
+### Linearity:
+The relationship between X and the mean of Y is linear.
+Homoscedasticity: The variance of residual is the same for any value of X.
+Independence: Observations are independent of each other.
+Normality: For any fixed value of X, Y is normally distributed.
+Before we go further, let's review some definitions for problematic points.
+
+### Outliers: 
+An outlier is defined as an observation that has a large residual. In other words, the observed value for the point is very different from that predicted by the regression model.
+### Leverage points:
+A leverage point is defined as an observation that has a value of x that is far away from the mean of x. 
+### Influential observations:
+An influential observation is defined as an observation that changes the slope of the line. Thus, influential points have a large influence on the fit of the model. One method to find influential points is to compare the fit of the model with and without each observation.
+
+### Gamma Distribution [2]
+The gamma distribution is continuous and defined for positive real numbers, [0,???). Depending on the values of its parameters, it may be either "ski-slope" shaped or it may be single-peaked, with a more-or-less exaggerated tail on the right. It can be used to represent the density of any variable that is restricted to non-negative values, 
+
+Since Area and Stocking have influemce on inland fish production the data is used to fit glm of Fish Production Vs Stocking * Area Interaction with Gamma family of distribution.
+
+```{r}
+Model1<- glm(formula = Qty_MT ~ stocking_LFng + Area_ha, data = legacy_data,
+             family = Gamma(link = "identity"))
+summary(Model1)
+```
+
+## Diagnostic plots
+```{r}
+par(mfrow =c(2,2))
+plot(Model1)
+```
+
+### The first plot depicts residuals versus fitted values.
+
+Residuals are measured as follows:
+
+residual =  observed y   -   model-predicted y
+
+The plot of residuals versus predicted values is useful for checking the assumption of linearity and homoscedasticity. If the model does not meet the linear model assumption, we would expect to see residuals that are very large (big positive value or big negative value). To assess the assumption of linearity we want to ensure that the residuals are not too far away from 0 (standardized values less than -2 or greater than 2 are deemed problematic). To assess if the homoscedasticity assumption is met we look to make sure that there is no pattern in the residuals and that they are equally spread around the y = 0 line.
+
+### Normal QQ-Plot:
+The tests and intervals estimated in summary(Model1) are based on the assumption of normality. The normality assumption is evaluated based on the residuals and can be evaluated using a QQ-plot by comparing the residuals to "ideal" normal observations. Observations lie well along the 45-degree line in the QQ-plot, so we may assume that normality holds here.
+
+### Scale Location Plot:
+The third plot is a scale-location plot (square rooted standardized residual vs. predicted value). This is useful for checking the assumption of homoscedasticity. In this particular plot we are checking to see if there is a pattern in the residuals.
+
+The assumption of a random sample and independent observations cannot be tested with diagnostic plots. It is an assumption that you can test by examining the study design.
+
+### Cook's distance (Residuals Vs Leverage) plot 
+
+The fourth plot is of "Cook's distance", which is a measure of the influence of each observation on the regression coefficients. The Cook's distance statistic is a measure, for each observation in turn, of the extent of change in model estimates when that particular observation is omitted. Any observation for which the Cook's distance is close to 1 or more, or that is substantially larger than other Cook's distances (highly influential data points), requires investigation.
+
+Outliers may or may not be influential points. Influential outliers are of the greatest concern. They should never be disregarded. Careful scrutiny of the original data may reveal an error in data entry that can be corrected. If they remain excluded from the final fitted model, they must be noted in the final report or paper.
+
+Model generally fits linear model to a larger extant. However the above plots show few outliers which affect the prediction on slightly higher side.
+Here are some potentially influential observations in the data
+
+```{r}
+summary(influence.measures(Model1))
+```
+
+# Prediction based on model
+
+Stocking of fingerlings and Area available during 2016 -17 is gathered in a dataframe 'data_2016'. Thirty data points representing each disrict is taken in to this dataframe for predction of inland fish production.
+
+```{r}
+data_2016<-read.csv("new.txt")
+data_2016$year_ann <- 2016
+print(data_2016)
+```
+
+```{r}
+
+predicted_data_2016<-predict(Model1,
+                             data.frame(stocking_LFng=data_2016$stocking_Lfng,
+                                        Area_ha = data_2016$Area_ha),
+                             type = "response", se.fit = TRUE)
+
+sum(predicted_data_2016$fit)
+
+```
+
+### As per the fitted model predicted inalnd fish production of the state for the year 2016-17 is "157876 MT"" 
+
+## District-wise predicted data
+
+Model has also predicted district-wise  fish production for the year 2016-17 based on stocking and Area available in each district.
+
+```{r}
+dist_prodn_2016<-data.frame(data_2016$District,predicted_data_2016)
+colnames(dist_prodn_2016)<-c("District", "Predicted_fish_production-MT-2016","Std_Error","residual.scale")
+
+print(dist_prodn_2016)
+```
+
+# Estimation of Inland fish production potential of the state
+
+Using this prediction model an attempt is made to estimate the production potential of inalnd fish production of the state based on the optimum  fish seed stockable in difeerent types of water bodies in the state. 
+
+## Imortant assumptions:
+a) Fish seed required at 50% utilization rate to large Reservoirs @ 500 fingerlings per ha
+
+b) Fish seed required at 35% utilization rate to small Reservoirs @ 2000 fingerlings per ha
+
+c) Fish seed required at 0.50% utilization rate to Major Tanks @ 2000 fingerlings per ha
+
+d) Fish seed required at 30% <b>utilization<b> rate to Minor  @ 4000 fingerlings per ha
+
+e) Fish seed required at 50% utilization rate to River straech s @ 1000 fingerlings per km
+f) Fish seed required at 10% utilization rate to water logged area converted to culture ponds for intensive fish culture @ 10000 fingerlings per ha
+
+Using District-wise resource data stored in 'resource_data' data from let us estimate distict-wise fish seed stockable in these resources based on above assumptions.
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+pot_assumptions<-readWorksheet(inland_xl_data, sheet = 4 , startRow =1 ,
+                               startCol = 1 , endRow = 7 , endCol = 3,
+                               header = TRUE)
+
+pot_cf<- pot_assumptions %>% mutate(cf = rate * utilization / 100000)
+
+pot_cf
+```
+
+## Extract resource data
+```{r}
+resource<-resource_data[,c(1,10:15)]
+
+colnames(resource)<-c("District","Large Reservoir", "Small Reservoir",
+                      "Major Tank", "Minor Tank", "Private Ponds", "River")
+
+print(resource) # Water spread Area in Ha nad River length in km
+```
+
+## Estimation of fish seed stockable in waterbodies
+
+
+```{r, warning= FALSE}
+
+
+fish_seed_req<- resource %>% mutate(LR = `Large Reservoir`* pot_cf[1,4],
+                                    SR = `Small Reservoir` * pot_cf[2,4],
+                                    MJR = `Major Tank` * pot_cf[3,4],
+                                    MNR = `Minor Tank` * pot_cf[4,4],
+                                    PVTR = `Private Ponds` * pot_cf[5,4],
+                                    RR = River * pot_cf[6,4], TFSR = LR +
+                                      SR + MJR + MNR + PVTR + RR,
+                                    TA = `Large Reservoir` +
+                                      `Small Reservoir` +
+                                      `Major Tank` + `Minor Tank` +
+                                      `Private Ponds`)
+
+sum(fish_seed_req$TFSR) # Total Fish seed required in lakh fingerlings
+sum(fish_seed_req$TA) # Total water spread Area available
+```
+## Estimation of district-wise inland fish production potential of the state in MT
+
+Model has also predicted district-wise fish production potential  based on stockable quantity and Area available in each district.
+
+```{r}
+predicted_potential<-predict.glm(Model1,data.frame(stocking_LFng=fish_seed_req$TFSR,
+                                                   Area_ha = fish_seed_req$TA),
+                                 type = "response", se.fit = TRUE)
+
+
+
+dist_predn_pot<-data.frame(fish_seed_req$District,
+                           fish_seed_req$TFSR,predicted_potential)
+colnames(dist_predn_pot)<-c("District", "Fish_seed_Required_LFng","Predicted_fish_production-MT", "Std. Error",
+                            "Residual Scale")
+
+print(dist_predn_pot) 
+# District-wise fish production potential based on GLM model
+```
+## Inland fish production potential of the state in MT
+```{r}
+round(sum(predicted_potential$fit) , -3)
+```
+
+#references:
+
+[1] GLM with a Gamma-distributed Dependent Variable; Paul E. Johnson October 6, 2014
+http://pj.freefaculty.org/guides/stat/Regression-GLM/Gamma/GammaGLM-01.pdf
+
+[2] Distribution Overview: Probability by the Seat of the Pants;  Paul Johnson August 30, 2011
+http://pj.freefaculty.org/guides/stat/Distributions/DistributionOverview/DistributionReview.pdf
+
+
+
+#### End of the document
+
+rmse<-function(y,y_pred){
+  RMSE <- sqrt(mean((y-y_pred)^2))
+
+  return (RMSE)
+}
+rmse(data$rating, model.1$fitted.values)
+
+mae<-function(y,y_pred){
+
+  MAE <- sum(abs(y-y_pred))/length(y)
+
+  return (MAE)
+}
+mae(data$rating, model.1$fitted.values)
+
+rmlse <- function(y,y_pred) {
+
+  RMLSE<-sqrt(1/length(y)*sum((log(y_pred +1)-log(y +1))^2))
+
+  return(RMLSE)
+}
+rmlse(data$rating, model.1$fitted.values)
